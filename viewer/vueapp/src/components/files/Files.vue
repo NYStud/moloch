@@ -53,59 +53,17 @@
       </moloch-error>
 
       <div v-show="!error">
-        <table class="table table-sm table-striped">
-          <thead>
-            <tr>
-              <th v-for="column of columns"
-                :key="column.name"
-                :class="`cursor-pointer ${column.classes}`"
-                v-b-tooltip.hover
-                :title="column.help"
-                @click="columnClick(column.sort)">
-                {{ column.name }}
-                <span v-if="column.sort !== undefined">
-                  <span v-show="query.sortField === column.sort && !query.desc" class="fa fa-sort-asc"></span>
-                  <span v-show="query.sortField === column.sort && query.desc" class="fa fa-sort-desc"></span>
-                  <span v-show="query.sortField !== column.sort" class="fa fa-sort"></span>
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody v-if="files">
-            <template v-for="file of files.data">
-              <tr :key="file.id">
-                <td class="no-wrap">
-                  {{ file.num }}
-                </td>
-                <td class="no-wrap">
-                  {{ file.node }}
-                </td>
-                <td class="no-wrap">
-                  {{ file.name }}
-                </td>
-                <td class="no-wrap">
-                  {{ file.locked === 1 ? 'True' : 'False' }}
-                </td>
-                <td class="no-wrap">
-                  <span v-if="user">
-                    {{ file.first | timezoneDateString(user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z') }}
-                  </span>
-                </td>
-                <td class="no-wrap text-right">
-                  {{ file.filesize | commaString }}
-                </td>
-              </tr>
-            </template>
-            <tr v-if="!files.data.length">
-              <td colspan="6"
-                class="text-danger text-center">
-                <span class="fa fa-warning">
-                </span>&nbsp;
-                No results match your search
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <moloch-table
+          v-if="files"
+          id="fieldTable"
+          table-classes="table-sm"
+          :columns="columns"
+          :data="files.data"
+          :no-results="true"
+          :sortEvent="columnClick"
+          :desc="query.desc"
+          :sortField="query.sortField">
+        </moloch-table>
       </div>
 
     </div>
@@ -118,13 +76,19 @@
 import MolochPaging from '../utils/Pagination';
 import MolochError from '../utils/Error';
 import MolochLoading from '../utils/Loading';
+import MolochTable from '../utils/Table';
 import FocusInput from '../utils/FocusInput';
 
 let searchInputTimeout; // timeout to debounce the search input
 
 export default {
   name: 'Files',
-  components: { MolochPaging, MolochError, MolochLoading },
+  components: {
+    MolochPaging,
+    MolochError,
+    MolochLoading,
+    MolochTable
+  },
   directives: { FocusInput },
   data: function () {
     return {
@@ -139,12 +103,12 @@ export default {
         desc: false
       },
       columns: [ // node stats table columns
-        { name: 'File Number', sort: 'num', help: 'Internal file number, unique per node' },
-        { name: 'Node', sort: 'node', help: 'What moloch capture node this file lives on' },
-        { name: 'Name', sort: 'name', help: 'The complete file path for the file' },
-        { name: 'Locked', sort: 'locked', help: 'If locked Moloch viewer won\'t delete this file to free space' },
-        { name: 'First Date', sort: 'first', help: 'Timestamp of the first packet in the file' },
-        { name: 'File Size', sort: 'filesize', classes: 'text-right', help: 'Size of the file in bytes, blank if the file is still being written to' }
+        { name: 'File Number', sort: 'num', dataField: 'num', help: 'Internal file number, unique per node', width: '140' },
+        { name: 'Node', sort: 'node', dataField: 'node', help: 'What moloch capture node this file lives on', width: '80' },
+        { name: 'Name', sort: 'name', dataField: 'name', help: 'The complete file path' },
+        { name: 'Locked', sort: 'locked', dataField: 'locked', dataFunction: (val) => { return val === 1 ? 'True' : 'False'; }, help: 'If locked Moloch viewer won\'t delete this file to free space', width: '100' },
+        { name: 'First Date', sort: 'first', dataField: 'first', dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, help: 'Timestamp of the first packet in the file', width: '200' },
+        { name: 'File Size', sort: 'filesize', dataField: 'filesize', classes: 'text-right', help: 'Size of the file in bytes, blank if the file is still being written to', width: '100' }
       ]
     };
   },
