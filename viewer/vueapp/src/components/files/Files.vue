@@ -35,15 +35,15 @@
           </span>
         </div>
         <moloch-paging v-if="files"
-          :records-total="files.recordsTotal"
-          :records-filtered="files.recordsFiltered"
+          :records-total="recordsTotal"
+          :records-filtered="recordsFiltered"
           v-on:changePaging="changePaging"
           length-default=500 >
         </moloch-paging>
       </div>
     </div>
 
-    <div class="files-content">
+    <div class="files-content container-fluid">
 
       <moloch-loading v-if="loading && !error">
       </moloch-loading>
@@ -54,15 +54,16 @@
 
       <div v-show="!error">
         <moloch-table
-          v-if="files"
           id="fieldTable"
-          table-classes="table-sm"
+          :data="files"
+          :loadData="loadData"
           :columns="columns"
-          :data="files.data"
           :no-results="true"
-          :sortEvent="columnClick"
           :desc="query.desc"
-          :sortField="query.sortField">
+          :sortField="query.sortField"
+          table-classes="table-sm"
+          table-state-name="fieldsCols"
+          table-widths-state-name="filesColWidths">
         </moloch-table>
       </div>
 
@@ -95,6 +96,8 @@ export default {
       error: '',
       loading: true,
       files: null,
+      recordsTotal: undefined,
+      recordsFiltered: undefined,
       query: {
         length: parseInt(this.$route.query.length) || 500,
         start: 0,
@@ -103,12 +106,12 @@ export default {
         desc: false
       },
       columns: [ // node stats table columns
-        { name: 'File Number', sort: 'num', dataField: 'num', help: 'Internal file number, unique per node', width: '140' },
-        { name: 'Node', sort: 'node', dataField: 'node', help: 'What moloch capture node this file lives on', width: '80' },
-        { name: 'Name', sort: 'name', dataField: 'name', help: 'The complete file path' },
-        { name: 'Locked', sort: 'locked', dataField: 'locked', dataFunction: (val) => { return val === 1 ? 'True' : 'False'; }, help: 'If locked Moloch viewer won\'t delete this file to free space', width: '100' },
-        { name: 'First Date', sort: 'first', dataField: 'first', dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, help: 'Timestamp of the first packet in the file', width: '200' },
-        { name: 'File Size', sort: 'filesize', dataField: 'filesize', classes: 'text-right', help: 'Size of the file in bytes, blank if the file is still being written to', width: '100' }
+        { id: 'fileNum', name: 'File #', sort: 'num', dataField: 'num', help: 'Internal file number, unique per node', width: 140 },
+        { id: 'node', name: 'Node', sort: 'node', dataField: 'node', help: 'What moloch capture node this file lives on', width: 80 },
+        { id: 'name', name: 'Name', sort: 'name', dataField: 'name', help: 'The complete file path', width: 500 },
+        { id: 'locked', name: 'Locked', sort: 'locked', dataField: 'locked', dataFunction: (val) => { return val === 1 ? 'True' : 'False'; }, help: 'If locked Moloch viewer won\'t delete this file to free space', width: 100 },
+        { id: 'firstDate', name: 'First Date', sort: 'first', dataField: 'first', dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, help: 'Timestamp of the first packet in the file', width: 200 },
+        { id: 'fileSize', name: 'File Size', sort: 'filesize', dataField: 'filesize', classes: 'text-right', help: 'Size of the file in bytes, blank if the file is still being written to', width: 100 }
       ]
     };
   },
@@ -127,9 +130,6 @@ export default {
     shiftKeyHold: function () {
       return this.$store.state.shiftKeyHold;
     }
-  },
-  created: function () {
-    this.loadData();
   },
   methods: {
     /* exposed page functions ------------------------------------ */
@@ -151,23 +151,23 @@ export default {
       this.query.filter = undefined;
       this.loadData();
     },
-    columnClick (name) {
-      this.query.sortField = name;
-      this.query.desc = !this.query.desc;
-      this.loadData();
-    },
     onOffFocus: function () {
       this.focusInput = false;
     },
     /* helper functions ---------------------------------------------------- */
-    loadData: function () {
+    loadData: function (sortField, desc) {
       this.loading = true;
+
+      this.query.desc = desc;
+      this.query.sortField = sortField;
 
       this.$http.get('file/list', { params: this.query })
         .then((response) => {
           this.error = '';
           this.loading = false;
-          this.files = response.data;
+          this.files = response.data.data;
+          this.recordsTotal = response.data.recordsTotal;
+          this.recordsFiltered = response.data.recordsFiltered;
         }, (error) => {
           this.loading = false;
           this.error = error;
