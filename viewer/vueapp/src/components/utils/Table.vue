@@ -1,20 +1,26 @@
 <template>
 
-  <!-- TODO fit table -->
-  <!-- TODO animations? -->
   <table v-if="computedColumns && computedColumns.length"
     style="{ width: tableWidth + 'px' }"
     class="table-striped"
     :class="tableClasses"
     :id="id">
     <thead>
+      <button type="button"
+        v-if="showFitButton"
+        class="btn btn-xs btn-theme-quaternary fit-btn"
+        @click="fitTable"
+        v-b-tooltip.hover
+        title="Fit the table to the current window size">
+        <span class="fa fa-arrows-h">
+        </span>
+      </button>
       <tr ref="draggableColumns">
         <!-- TODO col config buttons -->
         <th v-if="actionColumn"
           class="ignore-element">
           &nbsp;
         </th>
-        <!-- TODO save table state on sort -->
         <th v-for="column in computedColumns"
           :key="column.name"
           v-b-tooltip.hover
@@ -31,7 +37,9 @@
         </th>
       </tr>
     </thead>
-    <tbody>
+    <transition-group name="list"
+      tag="tbody">
+      <!-- TODO collapsible row to display more info -->
       <tr v-for="item of data"
         :key="item.id">
         <!-- TODO action buttons -->
@@ -48,7 +56,8 @@
           </template>
         </td>
       </tr>
-      <tr v-if="noResults && data && !data.length">
+      <tr v-if="noResults && data && !data.length"
+        key="noResults">
         <td colspan="6"
           class="text-danger text-center">
           <span class="fa fa-warning">
@@ -56,7 +65,7 @@
           No results match your search
         </td>
       </tr>
-    </tbody>
+    </transition-group>
   </table>
 
 </template>
@@ -128,7 +137,8 @@ export default {
       tableDesc: undefined,
       tableSortField: undefined,
       computedColumns: [], // columns in the order computed from the saved table state
-      columnWidths: {} // width of each column that has been modified
+      columnWidths: {}, // width of each column that has been modified
+      showFitButton: false
     };
   },
   mounted: function () {
@@ -136,6 +146,7 @@ export default {
     this.getColumnWidths();
   },
   methods: {
+    /* exposed page functions ------------------------------------ */
     sort: function (sort) {
       // if the sort field is the same, toggle it, otherwise set it to default (true)
       this.tableDesc = this.tableSortField === sort ? !this.tableDesc : true;
@@ -143,6 +154,30 @@ export default {
       this.loadData(this.tableSortField, this.tableDesc);
       this.saveTableState();
     },
+    /* fits the table to the width of the current window size */
+    fitTable: function () {
+      // disable resizable columns so it can be initialized after columns are resized
+      $(`#${this.id}`).colResizable({ disable: true });
+
+      let windowWidth = window.innerWidth;
+      let leftoverWidth = windowWidth - this.tableWidth;
+      let percentChange = 1 + (leftoverWidth / this.tableWidth);
+
+      for (let i = 0, len = this.computedColumns.length; i < len; ++i) {
+        let column = this.computedColumns[i];
+        let newWidth = Math.floor(column.width * percentChange);
+        column.width = newWidth;
+        this.columnWidths[column.id] = newWidth;
+      }
+
+      this.tableWidth = windowWidth;
+      this.showFitButton = false;
+
+      this.saveColumnWidths();
+
+      this.initializeColResizable();
+    },
+    /* helper functions ------------------------------------------ */
     initializeColDragDrop: function () {
       setTimeout(() => { // wait for columns to render
         draggableColumns = Sortable.create(this.$refs.draggableColumns, {
@@ -207,6 +242,10 @@ export default {
               tableWidth += column.width;
             }
             this.tableWidth = tableWidth;
+
+            if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+              this.showFitButton = true;
+            }
           }
         };
 
@@ -273,6 +312,9 @@ export default {
             tableWidth += column.width;
           }
           this.tableWidth = tableWidth;
+          if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+            this.showFitButton = true;
+          }
           this.initializeColResizable();
         })
         .catch(() => {
@@ -290,3 +332,32 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+/* table fit button -------------------------- */
+table {
+  position: relative;
+}
+
+button.fit-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  visibility: hidden;
+}
+table > thead:hover button.fit-btn {
+  visibility: visible;
+}
+
+/* table animation --------------------------- */
+table .list-enter-active, .list-leave-active {
+  transition: all .5s;
+}
+table .list-enter, .list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+table .list-move {
+  transition: transform .5s;
+}
+</style>

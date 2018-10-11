@@ -158,8 +158,8 @@ export default {
     loadData: function (sortField, desc) {
       this.loading = true;
 
-      this.query.desc = desc;
-      this.query.sortField = sortField;
+      if (desc !== undefined) { this.query.desc = desc; }
+      if (sortField) { this.query.sortField = sortField; }
 
       this.$http.get('file/list', { params: this.query })
         .then((response) => {
