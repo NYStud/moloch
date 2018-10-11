@@ -19,7 +19,7 @@
         <!-- TODO col config buttons -->
         <th v-if="actionColumn"
           class="ignore-element">
-          &nbsp;
+          action!
         </th>
         <th v-for="column in computedColumns"
           :key="column.name"
@@ -39,23 +39,40 @@
     </thead>
     <transition-group name="list"
       tag="tbody">
-      <!-- TODO collapsible row to display more info -->
-      <tr v-for="item of data"
-        :key="item.id">
-        <!-- TODO action buttons -->
-        <td v-if="actionColumn">
-          &nbsp;
-        </td>
-        <td v-for="(column, index) in computedColumns"
-          :key="column.dataField+index">
-          <template v-if="!column.dataFunction">
-            {{ item[column.dataField] }}
-          </template>
-          <template v-else>
-            {{ column.dataFunction(item[column.dataField]) }}
-          </template>
-        </td>
-      </tr>
+      <!-- TODO average/total values -->
+      <template v-for="item of data">
+        <tr :key="item.id">
+          <!-- TODO action buttons -->
+          <td v-if="actionColumn">
+            <toggle-btn v-if="infoRow"
+              class="mr-1"
+              :opened="item.opened"
+              @toggle="toggleMoreInfo(item)">
+            </toggle-btn>
+          </td>
+          <td v-for="(column, index) in computedColumns"
+            :key="column.id +index">
+            <template v-if="!column.dataFunction && column.dataField">
+              {{ item[column.dataField] }}
+            </template>
+            <template v-else-if="column.dataFunction && !column.dataField">
+              {{ column.dataFunction(item) }}
+            </template>
+            <template v-else>
+              {{ column.dataFunction(item[column.dataField]) }}
+            </template>
+          </td>
+        </tr>
+        <!-- TODO persist item.open so if the table refreshes it's still open -->
+        <tr v-if="infoRow && item.opened"
+          class="text-left"
+          :key="item.id+'moreInfo'">
+          <!-- TODO colspan should be ++ed if actionColumn exists -->
+          <td :colspan="computedColumns.length">
+            <div :id="'moreInfo-' + item.id"></div>
+          </td>
+        </tr>
+      </template>
       <tr v-if="noResults && data && !data.length"
         key="noResults">
         <td colspan="6"
@@ -71,10 +88,11 @@
 </template>
 
 <script>
-import UserService from '../users/UserService';
-
 import Sortable from 'sortablejs';
 import '../../../../public/colResizable.js';
+
+import UserService from '../users/UserService';
+import ToggleBtn from '../utils/ToggleBtn';
 
 let tableDestroyed;
 let draggableColumns;
@@ -86,6 +104,7 @@ let draggableColumns;
  */
 export default {
   name: 'MolochTable',
+  components: { ToggleBtn },
   props: {
     loadData: { // event to fire when the table needs to load data
       type: Function,
@@ -106,6 +125,15 @@ export default {
     actionColumn: { // whether to display an action column on the left
       type: Boolean,
       default: false
+    },
+    infoRow: { // whether to display a row underneath each data row with additional information
+      // IMPORTANT! actionColumn must also be set to true for it to be visible
+      type: Boolean,
+      default: false
+    },
+    // TODO maybe have infoRowHTML for simpler info rows
+    infoRowFunction: { // function to call to render content for more info row
+      type: Function
     },
     data: { // table data
       type: Array
@@ -176,6 +204,14 @@ export default {
       this.saveColumnWidths();
 
       this.initializeColResizable();
+    },
+    toggleMoreInfo: function (item) {
+      this.$set(item, 'opened', !item.opened);
+      if (this.infoRowFunction) {
+        setTimeout(() => { // wait for row to expand
+          this.infoRowFunction(item);
+        });
+      }
     },
     /* helper functions ------------------------------------------ */
     initializeColDragDrop: function () {
@@ -273,6 +309,9 @@ export default {
               }
             }
           } else {
+            // this table has not been saved, so use the passed in vars
+            this.tableDesc = this.desc;
+            this.tableSortField = this.sortField;
             this.computedColumns = this.columns;
           }
 
@@ -335,10 +374,10 @@ export default {
 
 <style scoped>
 /* table fit button -------------------------- */
+/* make fit button pos relative to table */
 table {
   position: relative;
 }
-
 button.fit-btn {
   position: absolute;
   right: 0;
@@ -347,6 +386,17 @@ button.fit-btn {
 }
 table > thead:hover button.fit-btn {
   visibility: visible;
+}
+
+/* average/total delimeters ------------------ */
+tr.bold {
+  font-weight: bold;
+}
+table tr.border-bottom-bold > td {
+  border-bottom: 2px solid #dee2e6;
+}
+table tr.border-top-bold > td {
+  border-top: 2px solid #dee2e6;
 }
 
 /* table animation --------------------------- */

@@ -44,13 +44,29 @@
 
       <moloch-paging v-if="stats"
         class="mt-1"
-        :records-total="stats.recordsTotal"
-        :records-filtered="stats.recordsFiltered"
+        :records-total="recordsTotal"
+        :records-filtered="recordsFiltered"
         v-on:changePaging="changePaging"
         length-default=100>
       </moloch-paging>
 
-      <table class="table table-sm text-right small">
+      <moloch-table
+        id="captureStatsTable"
+        :data="stats"
+        :loadData="loadData"
+        :columns="columns"
+        :no-results="true"
+        :action-column="true"
+        :info-row="true"
+        :info-row-function="toggleStatDetail"
+        :desc="query.desc"
+        :sortField="query.sortField"
+        table-classes="table-sm text-right small"
+        table-state-name="captureStatsCols"
+        table-widths-state-name="captureStatsColWidths">
+      </moloch-table>
+
+      <!-- <table class="table table-sm text-right small">
         <thead>
           <tr>
             <th v-for="column of columns"
@@ -177,7 +193,7 @@
             <td>{{ totalValues.deltaESDroppedPerSec | round(0) | commaString }}</td>
           </tr>
         </tfoot>
-      </table>
+      </table> -->
 
     </div>
 
@@ -186,6 +202,7 @@
 </template>
 
 <script>
+import Vue from 'vue';
 import d3 from '../../../../public/d3.min.js';
 import cubism from '../../../../public/cubism.v1.js';
 import '../../../../public/highlight.min.js';
@@ -195,22 +212,36 @@ import ToggleBtn from '../utils/ToggleBtn';
 import MolochPaging from '../utils/Pagination';
 import MolochError from '../utils/Error';
 import MolochLoading from '../utils/Loading';
+import MolochTable from '../utils/Table';
 import FocusInput from '../utils/FocusInput';
 
 let reqPromise; // promise returned from setInterval for recurring requests
 let searchInputTimeout; // timeout to debounce the search input
 let respondedAt; // the time that the last data load succesfully responded
 
+function roundCommaString (val) {
+  let result = Vue.options.filters.commaString(Vue.options.filters.round(val, 0));
+  return result;
+};
+
 export default {
   name: 'NodeStats',
   props: [ 'user', 'graphType', 'graphInterval', 'graphHide', 'dataInterval', 'refreshData' ],
-  components: { ToggleBtn, MolochPaging, MolochError, MolochLoading },
+  components: {
+    ToggleBtn,
+    MolochPaging,
+    MolochError,
+    MolochLoading,
+    MolochTable
+  },
   directives: { FocusInput },
   data: function () {
     return {
       error: '',
       loading: true,
       stats: null,
+      recordsTotal: undefined,
+      recordsFiltered: undefined,
       totalValues: null,
       averageValues: null,
       showNodeStats: true,
@@ -224,20 +255,21 @@ export default {
         hide: this.graphHide || 'none'
       },
       columns: [ // node stats table columns
-        { name: '', doStats: false },
-        { name: 'Node', sort: 'nodeName', doStats: false },
-        { name: 'Time', sort: 'currentTime', doStats: true },
-        { name: 'Sessions', sort: 'monitoring', doStats: true },
-        { name: 'Free Space', sort: 'freeSpaceM', doStats: true },
-        { name: 'CPU', sort: 'cpu', doStats: true },
-        { name: 'Memory', sort: 'memory', doStats: true },
-        { name: 'Packet Q', sort: 'packetQueue', doStats: true },
-        { name: 'Packet/s', sort: 'deltaPackets', field: 'deltaPacketsPerSec', doStats: true },
-        { name: 'Bytes/s', sort: 'deltaBytes', field: 'deltaBytesPerSec', doStats: true },
-        { name: 'Sessions/s', sort: 'deltaSessions', field: 'deltaSessionsPerSec', doStats: true },
-        { name: 'Packet Drops/s', sort: 'deltaDropped', field: 'deltaDroppedPerSec', doStats: true },
-        { name: 'Overload Drops/s', sort: 'deltaOverloadDropped', field: 'deltaOverloadDroppedPerSec', doStats: true },
-        { name: 'ES Drops/s', sort: 'deltaESDropped', field: 'deltaESDroppedPerSec', doStats: true }
+        // TODO add ALL the columns for all the data returned
+        // { name: '', doStats: false },
+        { id: 'node', name: 'Node', sort: 'nodeName', dataField: 'nodeName', doStats: false },
+        { id: 'time', name: 'Time', sort: 'currentTime', dataField: 'currentTime', dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, doStats: true },
+        { id: 'sessions', name: 'Sessions', sort: 'monitoring', dataField: 'monitoring', dataFunction: roundCommaString, doStats: true },
+        { id: 'freeSpace', name: 'Free Space', sort: 'freeSpaceM', dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.freeSpaceM * 1000000) + ' (' + this.$options.filters.round(item.freeSpaceP, 1) + '%)'; }, doStats: true },
+        { id: 'cpu', name: 'CPU', sort: 'cpu', dataField: 'cpu', dataFunction: (val) => { return this.$options.filters.round(val / 100.0, 1); }, doStats: true },
+        { id: 'memory', name: 'Memory', sort: 'memory', dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.memory) + ' (' + this.$options.filters.round(item.memoryP, 1) + '%)'; }, doStats: true },
+        { id: 'packetQ', name: 'Packet Q', sort: 'packetQueue', dataField: 'packetQueue', dataFunction: roundCommaString, doStats: true },
+        { id: 'deltaPackets', name: 'Packet/s', sort: 'deltaPackets', dataField: 'deltaPacketsPerSec', dataFunction: roundCommaString, doStats: true },
+        { id: 'deltaBytes', name: 'Bytes/s', sort: 'deltaBytes', dataField: 'deltaBytesPerSec', dataFunction: (val) => { return this.$options.filters.humanReadableBytes(val); }, doStats: true },
+        { id: 'deltaSessions', name: 'Sessions/s', sort: 'deltaSessions', dataField: 'deltaSessionsPerSec', dataFunction: roundCommaString, doStats: true },
+        { id: 'deltaDropped', name: 'Packet Drops/s', sort: 'deltaDropped', dataField: 'deltaDroppedPerSec', dataFunction: roundCommaString, doStats: true },
+        { id: 'deltaOverloadDropped', name: 'Overload Drops/s', sort: 'deltaOverloadDropped', dataField: 'deltaOverloadDroppedPerSec', dataFunction: roundCommaString, doStats: true },
+        { id: 'deltaESDropped', name: 'ES Drops/s', sort: 'deltaESDropped', dataField: 'deltaESDroppedPerSec', dataFunction: roundCommaString, doStats: true }
       ]
     };
   },
@@ -353,15 +385,20 @@ export default {
         }
       }, 500);
     },
-    loadData: function () {
+    loadData: function (sortField, desc) {
       respondedAt = undefined;
+
+      if (desc !== undefined) { this.query.desc = desc; }
+      if (sortField) { this.query.sortField = sortField; }
 
       this.$http.get('stats.json', { params: this.query })
         .then((response) => {
           respondedAt = Date.now();
           this.error = '';
           this.loading = false;
-          this.stats = response.data;
+          this.stats = response.data.data;
+          this.recordsTotal = response.data.recordsTotal;
+          this.recordsFiltered = response.data.recordsFiltered;
 
           this.totalValues = {};
           this.averageValues = {};
@@ -390,21 +427,15 @@ export default {
         });
     },
     toggleStatDetail: function (stat) {
+      if (!stat.opened) { return; }
       var self = this;
       let id = stat.id.replace(/[.:]/g, '\\$&');
 
-      this.$set(stat, 'opened', !stat.opened);
-      this.expandedNodeStats[id] = !this.expandedNodeStats[id];
-
-      document.getElementById('statsGraphRow-' + id).style.display =
-        this.expandedNodeStats[id] ? 'table-row' : 'none';
-
-      let wrap = document.getElementById('statsGraph-' + id);
+      let wrap = document.getElementById('moreInfo-' + id);
       while (wrap.firstChild) {
         wrap.removeChild(wrap.firstChild);
       }
-
-      if (!this.expandedNodeStats[id]) { return; }
+      $(wrap).css('width', '1440px');
 
       var dcontext = cubism.cubism.context()
         .serverDelay(0)
@@ -446,7 +477,7 @@ export default {
         }
       }
 
-      d3.select('#statsGraph-' + id).call(function (div) {
+      d3.select('#moreInfo-' + id).call(function (div) {
         if (div[0][0]) {
           div.append('div')
             .attr('class', 'axis')
@@ -479,29 +510,7 @@ export default {
 </script>
 
 <style scoped>
-.collapsed > .when-opened,
-:not(.collapsed) > .when-closed {
-  display: none;
-}
-
 .node-search {
   max-width: 50%;
-}
-
-td {
-  white-space: nowrap;
-}
-tr.bold {
-  font-weight: bold;
-}
-table.table tr.border-bottom-bold > td {
-  border-bottom: 2px solid #dee2e6;
-}
-table.table tr.border-top-bold > td {
-  border-top: 2px solid #dee2e6;
-}
-
-#graphContent, #nodeStatsContent {
-  overflow-x: auto;
 }
 </style>
