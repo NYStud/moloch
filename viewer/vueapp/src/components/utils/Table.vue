@@ -69,7 +69,52 @@
     </thead>
     <transition-group name="list"
       tag="tbody">
-      <!-- TODO average/total values -->
+      <!-- avg/total top rows -->
+      <template v-if="showAvgTot && data && data.length > 9">
+        <tr class="bold average-row"
+          key="averageRow">
+          <td v-if="actionColumn">
+            Average
+          </td>
+          <td v-for="(column, index) in computedColumns"
+            :key="column.id + index + 'avg'">
+            <template v-if="!column.doStats">
+              &nbsp;
+            </template>
+            <template v-else-if="column.avgTotFunction">
+              {{ column.avgTotFunction(averageValues[index]) }}
+            </template>
+            <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
+              {{ column.dataFunction(averageValues[index]) }}
+            </template>
+            <template v-else>
+              {{ averageValues[index] }}
+            </template>
+          </td>
+        </tr>
+        <tr class="border-bottom-bold bold total-row"
+          key="totalRow">
+          <td v-if="actionColumn">
+            Total
+          </td>
+          <td v-for="(column, index) in computedColumns"
+            :key="column.id + index + 'avg'">
+            <template v-if="!column.doStats">
+              &nbsp;
+            </template>
+            <template v-else-if="column.avgTotFunction">
+              {{ column.avgTotFunction(averageValues[index]) }}
+            </template>
+            <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
+              {{ column.dataFunction(averageValues[index]) }}
+            </template>
+            <template v-else>
+              {{ averageValues[index] }}
+            </template>
+          </td>
+        </tr>
+      </template> <!-- /avg/total top rows -->
+      <!-- data rows -->
       <template v-for="item of data">
         <tr :key="item.id">
           <!-- TODO action buttons -->
@@ -82,7 +127,7 @@
             </toggle-btn>
           </td>
           <td v-for="(column, index) in computedColumns"
-            :key="column.id +index">
+            :key="column.id + index">
             <template v-if="!column.dataFunction && column.dataField">
               {{ item[column.dataField] }}
             </template>
@@ -101,7 +146,8 @@
             <div :id="'moreInfo-' + item.id"></div>
           </td>
         </tr>
-      </template>
+      </template> <!-- /data rows -->
+      <!-- no results -->
       <tr v-if="noResults && data && !data.length"
         key="noResults">
         <td :colspan="tableColspan"
@@ -110,8 +156,51 @@
           </span>&nbsp;
           No results match your search
         </td>
-      </tr>
+      </tr> <!-- /no results -->
     </transition-group>
+    <!-- avg/total bottom rows -->
+    <tfoot v-if="showAvgTot && data && data.length > 1">
+      <tr class="border-top-bold bold average-row">
+        <td v-if="actionColumn">
+          Average
+        </td>
+        <td v-for="(column, index) in computedColumns"
+          :key="column.id + index + 'avg'">
+          <template v-if="!column.doStats">
+            &nbsp;
+          </template>
+          <template v-else-if="column.avgTotFunction">
+            {{ column.avgTotFunction(averageValues[index]) }}
+          </template>
+          <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
+            {{ column.dataFunction(averageValues[index]) }}
+          </template>
+          <template v-else>
+            {{ averageValues[index] }}
+          </template>
+        </td>
+      </tr>
+      <tr class="bold total-row">
+        <td v-if="actionColumn">
+          Total
+        </td>
+        <td v-for="(column, index) in computedColumns"
+          :key="column.id + index + 'avg'">
+          <template v-if="!column.doStats">
+            &nbsp;
+          </template>
+          <template v-else-if="column.avgTotFunction">
+            {{ column.avgTotFunction(averageValues[index]) }}
+          </template>
+          <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
+            {{ column.dataFunction(averageValues[index]) }}
+          </template>
+          <template v-else>
+            {{ averageValues[index] }}
+          </template>
+        </td>
+      </tr>
+    </tfoot> <!-- /avg/total bottom rows -->
   </table>
 
 </template>
@@ -189,6 +278,10 @@ export default {
     tableWidthsStateName: { // api endpoint to save table state (/state/:tableWidthsStateName)
       type: String,
       required: true
+    },
+    showAvgTot: { // whether to display the average and total rows
+      type: Boolean,
+      default: false
     }
   },
   data: function () {
@@ -201,7 +294,9 @@ export default {
       columnWidths: {}, // width of each column that has been modified
       showFitButton: false, // whether to show the table fit button (if the table is >||< 10px of the inner window width)
       colQuery: '', // the search string for columns to add/remove from the table
-      openedRows: {} // save the opened rows so they don't get unopened when the table data refreshes
+      openedRows: {}, // save the opened rows so they don't get unopened when the table data refreshes
+      averageValues: [], // list of total values
+      totalValues: [] // list of total values
     };
   },
   computed: {
@@ -218,6 +313,7 @@ export default {
     }
   },
   // watch for data to change to set opened rows
+  // and to recalucate the average and total rows
   watch: {
     data: function () {
       if (Object.keys(this.openedRows).length) {
@@ -225,6 +321,18 @@ export default {
         for (let item of this.data) {
           if (this.openedRows[item.id]) {
             this.$set(item, 'opened', true);
+          }
+        }
+      }
+      if (this.showAvgTot) { // calculate avg/tot values
+        for (let column of this.computedColumns) {
+          if (column.doStats) {
+            let totalValue = 0;
+            for (let item of this.data) {
+              totalValue += item[column.dataField || column.sort];
+            }
+            this.totalValues.push(totalValue);
+            this.averageValues.push(totalValue / this.data.length);
           }
         }
       }

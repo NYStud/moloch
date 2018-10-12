@@ -57,6 +57,7 @@
         :loadData="loadData"
         :columns="columns"
         :no-results="true"
+        :show-avg-tot="true"
         :action-column="true"
         :info-row="true"
         :info-row-function="toggleStatDetail"
@@ -66,135 +67,6 @@
         table-state-name="captureStatsCols"
         table-widths-state-name="captureStatsColWidths">
       </moloch-table>
-
-      <!-- <table class="table table-sm text-right small">
-        <thead>
-          <tr>
-            <th v-for="column of columns"
-              :key="column.name"
-              class="cursor-pointer"
-              :class="{'text-left':!column.doStats}"
-              @click="columnClick(column.sort)">
-              {{ column.name }}
-              <span v-if="column.sort !== undefined">
-                <span v-show="query.sortField === column.sort && !query.desc" class="fa fa-sort-asc"></span>
-                <span v-show="query.sortField === column.sort && query.desc" class="fa fa-sort-desc"></span>
-                <span v-show="query.sortField !== column.sort" class="fa fa-sort"></span>
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody v-if="stats">
-          <template v-if="averageValues && totalValues && stats.data.length > 9">
-            <tr class="bold average-row">
-              <td>&nbsp;</td>
-              <td class="text-left">Average</td>
-              <td>&nbsp;</td>
-              <td>{{ averageValues.monitoring | round(0) | commaString }}</td>
-              <td>{{ averageValues.freeSpaceM*1000000 | humanReadableBytes }} ({{ averageValues.freeSpaceP | round(1) }}%)</td>
-              <td>{{ averageValues.cpu/100.0 | round(1) }}%</td>
-              <td>{{ averageValues.memory | humanReadableBytes }} ({{ averageValues.memoryP | round(1) }}%)</td>
-              <td>{{ averageValues.packetQueue | round(0) | commaString }}</td>
-              <td>{{ averageValues.deltaPacketsPerSec | round(0) | commaString }}</td>
-              <td>{{ averageValues.deltaBytesPerSec | humanReadableBytes }}</td>
-              <td>{{ averageValues.deltaSessionsPerSec | round(0) | commaString }}</td>
-              <td>{{ averageValues.deltaDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ averageValues.deltaOverloadDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ averageValues.deltaESDroppedPerSec | round(0) | commaString }}</td>
-            </tr>
-            <tr class="border-bottom-bold bold total-row">
-              <td>&nbsp;</td>
-              <td class="text-left">Total</td>
-              <td>&nbsp;</td>
-              <td>{{ totalValues.monitoring | round(0) | commaString }}</td>
-              <td>{{ totalValues.freeSpaceM*1000000 | humanReadableBytes }} ({{ totalValues.freeSpaceP | round(1) }}%)</td>
-              <td>{{ totalValues.cpu/100.0 | round(1) }}%</td>
-              <td>{{ totalValues.memory | humanReadableBytes }} ({{ totalValues.memoryP | round(1) }}%)</td>
-              <td>{{ totalValues.packetQueue | round(0) | commaString }}</td>
-              <td>{{ totalValues.deltaPacketsPerSec | round(0) | commaString }}</td>
-              <td>{{ totalValues.deltaBytesPerSec | humanReadableBytes }}</td>
-              <td>{{ totalValues.deltaSessionsPerSec | round(0) | commaString }}</td>
-              <td>{{ totalValues.deltaDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ totalValues.deltaOverloadDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ totalValues.deltaESDroppedPerSec | round(0) | commaString }}</td>
-            </tr>
-          </template>
-          <template v-for="stat of stats.data">
-            <tr :key="stat.id + 'data'">
-              <td>
-                <toggle-btn class="mr-2"
-                  :opened="stat.opened"
-                  @toggle="toggleStatDetail(stat)">
-                </toggle-btn>
-              </td>
-              <td class="text-left">{{ stat.id }}</td>
-              <td>{{ stat.currentTime | timezoneDateString(user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z') }}</td>
-              <td>{{ stat.monitoring | round(0) | commaString }}</td>
-              <td>{{ stat.freeSpaceM*1000000 | humanReadableBytes }} ({{ stat.freeSpaceP | round(1) }}%)</td>
-              <td>{{ stat.cpu/100.0 | round(1) }}%</td>
-              <td>{{ stat.memory | humanReadableBytes }} ({{ stat.memoryP | round(1) }}%)</td>
-              <td>{{ stat.packetQueue | round(0) | commaString }}</td>
-              <td>{{ stat.deltaPacketsPerSec | round(0) | commaString }}</td>
-              <td>{{ stat.deltaBytesPerSec | humanReadableBytes }}</td>
-              <td>{{ stat.deltaSessionsPerSec | round(0) | commaString }}</td>
-              <td>{{ stat.deltaDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ stat.deltaOverloadDroppedPerSec | round(0) | commaString }}</td>
-              <td>{{ stat.deltaESDroppedPerSec | round(0) | commaString }}</td>
-            </tr>
-            <tr :key="stat.id + 'graph'"
-              :id="'statsGraphRow-' + stat.id"
-              style="display:none;">
-              <td :colspan="columns.length">
-                <div :id="'statsGraph-' + stat.id"
-                  style="width: 1440px;">
-                </div>
-              </td>
-            </tr>
-          </template>
-          <tr v-if="stats.data && !stats.data.length">
-            <td :colspan="columns.length"
-              class="text-danger text-center">
-              <span class="fa fa-warning">
-              </span>&nbsp;
-              No results match your search
-            </td>
-          </tr>
-        </tbody>
-        <tfoot v-if="stats && averageValues && totalValues && stats.data.length > 1">
-          <tr class="border-top-bold bold average-row">
-            <td>&nbsp;</td>
-            <td class="text-left">Average</td>
-            <td>&nbsp;</td>
-            <td>{{ averageValues.monitoring | round(0) | commaString }}</td>
-            <td>{{ averageValues.freeSpaceM*1000000 | humanReadableBytes }} ({{ averageValues.freeSpaceP | round(1) }}%)</td>
-            <td>{{ averageValues.cpu/100.0 | round(1) }}%</td>
-            <td>{{ averageValues.memory | humanReadableBytes }} ({{ averageValues.memoryP | round(1) }}%)</td>
-            <td>{{ averageValues.packetQueue | round(0) | commaString }}</td>
-            <td>{{ averageValues.deltaPacketsPerSec | round(0) | commaString }}</td>
-            <td>{{ averageValues.deltaBytesPerSec | humanReadableBytes }}</td>
-            <td>{{ averageValues.deltaSessionsPerSec | round(0) | commaString }}</td>
-            <td>{{ averageValues.deltaDroppedPerSec | round(0) | commaString }}</td>
-            <td>{{ averageValues.deltaOverloadDroppedPerSec | round(0) | commaString }}</td>
-            <td>{{ averageValues.deltaESDroppedPerSec | round(0) | commaString }}</td>
-          </tr>
-          <tr class="bold total-row">
-            <td>&nbsp;</td>
-            <td class="text-left">Total</td>
-            <td>&nbsp;</td>
-            <td>{{ totalValues.monitoring | round(0) | commaString }}</td>
-            <td>{{ totalValues.freeSpaceM*1000000 | humanReadableBytes }} ({{ totalValues.freeSpaceP | round(1) }}%)</td>
-            <td>{{ totalValues.cpu/100.0 | round(1) }}%</td>
-            <td>{{ totalValues.memory | humanReadableBytes }} ({{ totalValues.memoryP | round(1) }}%)</td>
-            <td>{{ totalValues.packetQueue | round(0) | commaString }}</td>
-            <td>{{ totalValues.deltaPacketsPerSec | round(0) | commaString }}</td>
-            <td>{{ totalValues.deltaBytesPerSec | humanReadableBytes }}</td>
-            <td>{{ totalValues.deltaSessionsPerSec | round(0) | commaString }}</td>
-            <td>{{ totalValues.deltaDroppedPerSec | round(0) | commaString }}</td>
-            <td>{{ totalValues.deltaOverloadDroppedPerSec | round(0) | commaString }}</td>
-            <td>{{ totalValues.deltaESDroppedPerSec | round(0) | commaString }}</td>
-          </tr>
-        </tfoot>
-      </table> -->
 
     </div>
 
@@ -258,11 +130,11 @@ export default {
       columns: [ // node stats table columns
         // default columns
         { id: 'node', name: 'Node', sort: 'nodeName', dataField: 'nodeName', width: 80, default: true, doStats: false },
-        { id: 'time', name: 'Time', sort: 'currentTime', dataField: 'currentTime', width: 150, dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, default: true, doStats: true },
+        { id: 'time', name: 'Time', sort: 'currentTime', dataField: 'currentTime', width: 150, dataFunction: (val) => { return this.$options.filters.timezoneDateString(val, this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); }, default: true, doStats: false },
         { id: 'sessions', name: 'Sessions', sort: 'monitoring', dataField: 'monitoring', width: 100, dataFunction: roundCommaString, default: true, doStats: true },
-        { id: 'freeSpace', name: 'Free Space', sort: 'freeSpaceM', width: 120, dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.freeSpaceM * 1000000) + ' (' + this.$options.filters.round(item.freeSpaceP, 1) + '%)'; }, default: true, doStats: true },
+        { id: 'freeSpace', name: 'Free Space', sort: 'freeSpaceM', width: 120, dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.freeSpaceM * 1000000) + ' (' + this.$options.filters.round(item.freeSpaceP, 1) + '%)'; }, avgTotFunction: (val) => { return this.$options.filters.humanReadableBytes(val * 1000000); }, default: true, doStats: true },
         { id: 'cpu', name: 'CPU', sort: 'cpu', dataField: 'cpu', width: 80, dataFunction: (val) => { return this.$options.filters.round(val / 100.0, 1); }, default: true, doStats: true },
-        { id: 'memory', name: 'Memory', sort: 'memory', width: 120, dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.memory) + ' (' + this.$options.filters.round(item.memoryP, 1) + '%)'; }, default: true, doStats: true },
+        { id: 'memory', name: 'Memory', sort: 'memory', width: 120, dataFunction: (item) => { return this.$options.filters.humanReadableBytes(item.memory) + ' (' + this.$options.filters.round(item.memoryP, 1) + '%)'; }, avgTotFunction: (val) => { return this.$options.filters.humanReadableBytes(val); }, default: true, doStats: true },
         { id: 'packetQ', name: 'Packet Q', sort: 'packetQueue', dataField: 'packetQueue', width: 100, dataFunction: roundCommaString, default: true, doStats: true },
         { id: 'deltaPackets', name: 'Packet/s', sort: 'deltaPackets', dataField: 'deltaPacketsPerSec', width: 100, dataFunction: roundCommaString, default: true, doStats: true },
         { id: 'deltaBytes', name: 'Bytes/s', sort: 'deltaBytes', dataField: 'deltaBytesPerSec', width: 80, dataFunction: (val) => { return this.$options.filters.humanReadableBytes(val); }, default: true, doStats: true },
@@ -417,27 +289,6 @@ export default {
           this.stats = response.data.data;
           this.recordsTotal = response.data.recordsTotal;
           this.recordsFiltered = response.data.recordsFiltered;
-
-          this.totalValues = {};
-          this.averageValues = {};
-
-          let columnNames = this.columns.map((item) => {
-            return item.field || item.sort;
-          });
-          columnNames.push('memoryP');
-          columnNames.push('freeSpaceP');
-
-          if (!this.stats.data) { return; }
-
-          for (let i = 3; i < columnNames.length; i++) {
-            let columnName = columnNames[i];
-
-            this.totalValues[columnName] = 0;
-            for (let s = 0; s < this.stats.data.length; s++) {
-              this.totalValues[columnName] += this.stats.data[s][columnName];
-            }
-            this.averageValues[columnName] = this.totalValues[columnName] / this.stats.data.length;
-          }
         }, (error) => {
           respondedAt = undefined;
           this.loading = false;
