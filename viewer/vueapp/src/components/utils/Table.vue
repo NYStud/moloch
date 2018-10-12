@@ -16,10 +16,40 @@
         </span>
       </button>
       <tr ref="draggableColumns">
-        <!-- TODO col config buttons -->
         <th v-if="actionColumn"
-          class="ignore-element">
-          action!
+          class="ignore-element pull-left">
+          <!-- column visibility button -->
+          <b-dropdown
+            size="sm"
+            no-flip
+            no-caret
+            class="col-vis-menu"
+            variant="theme-primary">
+            <template slot="button-content">
+              <span class="fa fa-th"
+                v-b-tooltip.hover
+                title="Toggle visible columns">
+              </span>
+            </template>
+            <b-dropdown-header>
+              <input type="text"
+                v-model="colQuery"
+                class="form-control form-control-sm dropdown-typeahead"
+                placeholder="Search for columns..."
+              />
+            </b-dropdown-header>
+            <b-dropdown-divider>
+            </b-dropdown-divider>
+            <b-dropdown-item
+              v-for="column in filteredColumns"
+              :key="column.id"
+              v-b-tooltip.hover.top
+              :title="column.help"
+              :class="{'active':isVisible(column.id) >= 0}"
+              @click.stop.prevent="toggleVisibility(column)">
+              {{ column.name }}
+            </b-dropdown-item>
+          </b-dropdown> <!-- /column visibility button -->
         </th>
         <th v-for="column in computedColumns"
           :key="column.name"
@@ -43,7 +73,8 @@
       <template v-for="item of data">
         <tr :key="item.id">
           <!-- TODO action buttons -->
-          <td v-if="actionColumn">
+          <td v-if="actionColumn"
+            class="pull-left">
             <toggle-btn v-if="infoRow"
               class="mr-1"
               :opened="item.opened"
@@ -63,19 +94,17 @@
             </template>
           </td>
         </tr>
-        <!-- TODO persist item.open so if the table refreshes it's still open -->
         <tr v-if="infoRow && item.opened"
           class="text-left"
           :key="item.id+'moreInfo'">
-          <!-- TODO colspan should be ++ed if actionColumn exists -->
-          <td :colspan="computedColumns.length">
+          <td :colspan="tableColspan">
             <div :id="'moreInfo-' + item.id"></div>
           </td>
         </tr>
       </template>
       <tr v-if="noResults && data && !data.length"
         key="noResults">
-        <td colspan="6"
+        <td :colspan="tableColspan"
           class="text-danger text-center">
           <span class="fa fa-warning">
           </span>&nbsp;
@@ -118,6 +147,9 @@ export default {
       type: String,
       require: false
     },
+    /* IMPORTANT:
+     * All columns must have a width.
+     * Columns that should be shown by default (no table state saved) must have default flag */
     columns: { // columns to be displayed in the table
       type: Array,
       required: true
@@ -162,14 +194,44 @@ export default {
   data: function () {
     return {
       error: '',
+      tableDiv: undefined,
       tableDesc: undefined,
       tableSortField: undefined,
       computedColumns: [], // columns in the order computed from the saved table state
       columnWidths: {}, // width of each column that has been modified
-      showFitButton: false
+      showFitButton: false, // whether to show the table fit button (if the table is >||< 10px of the inner window width)
+      colQuery: '', // the search string for columns to add/remove from the table
+      openedRows: {} // save the opened rows so they don't get unopened when the table data refreshes
     };
   },
+  computed: {
+    filteredColumns: function () {
+      // let filteredColumns = [];
+      return this.columns.filter((column) => {
+        return column.name.toLowerCase().includes(this.colQuery.toLowerCase());
+      });
+    },
+    tableColspan: function () {
+      let colspan = this.computedColumns.length;
+      if (this.actionColumn) { colspan++; }
+      return colspan;
+    }
+  },
+  // watch for data to change to set opened rows
+  watch: {
+    data: function () {
+      if (Object.keys(this.openedRows).length) {
+        // there are opened rows
+        for (let item of this.data) {
+          if (this.openedRows[item.id]) {
+            this.$set(item, 'opened', true);
+          }
+        }
+      }
+    }
+  },
   mounted: function () {
+    this.tableDiv = `#${this.id}`;
     this.getTableState(); // IMPORTANT! this loads the data for the table
     this.getColumnWidths();
   },
@@ -185,7 +247,7 @@ export default {
     /* fits the table to the width of the current window size */
     fitTable: function () {
       // disable resizable columns so it can be initialized after columns are resized
-      $(`#${this.id}`).colResizable({ disable: true });
+      $(this.tableDiv).colResizable({ disable: true });
 
       let windowWidth = window.innerWidth;
       let leftoverWidth = windowWidth - this.tableWidth;
@@ -207,11 +269,45 @@ export default {
     },
     toggleMoreInfo: function (item) {
       this.$set(item, 'opened', !item.opened);
+      this.openedRows[item.id] = !this.openedRows[item.id];
       if (this.infoRowFunction) {
         setTimeout(() => { // wait for row to expand
           this.infoRowFunction(item);
         });
       }
+    },
+    isVisible: function (id) {
+      let index = 0;
+      for (let column of this.computedColumns) {
+        if (column.id === id) {
+          return index;
+        }
+        index++;
+      }
+      return -1;
+    },
+    toggleVisibility: function (column) {
+      let index = this.isVisible(column.id);
+      if (index >= 0) { // it's visible
+        this.computedColumns.splice(index, 1);
+      } else { // it's hidden
+        this.computedColumns.push(column);
+      }
+
+      // calculate table width and set showFitButton accordingly
+      let tableWidth = 0;
+      for (let column of this.computedColumns) {
+        tableWidth += column.width;
+      }
+      this.tableWidth = tableWidth;
+
+      if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+        this.showFitButton = true;
+      } else {
+        this.showFitButton = false;
+      }
+
+      this.saveTableState();
     },
     /* helper functions ------------------------------------------ */
     initializeColDragDrop: function () {
@@ -249,7 +345,7 @@ export default {
     },
     initializeColResizable: function () {
       if (tableDestroyed) {
-        $(`#${this.id}`).colResizable({ disable: true });
+        $(this.tableDiv).colResizable({ disable: true });
         tableDestroyed = false;
       }
 
@@ -290,7 +386,7 @@ export default {
           options.disabledColumns = [0];
         }
 
-        $(`#${this.id}`).colResizable(options);
+        $(this.tableDiv).colResizable(options);
       });
     },
     getTableState: function () {
@@ -312,7 +408,12 @@ export default {
             // this table has not been saved, so use the passed in vars
             this.tableDesc = this.desc;
             this.tableSortField = this.sortField;
-            this.computedColumns = this.columns;
+            // display only the default columns
+            for (let column of this.columns) {
+              if (column.default) {
+                this.computedColumns.push(column);
+              }
+            }
           }
 
           this.loadData(this.tableSortField, this.tableDesc);
@@ -350,6 +451,7 @@ export default {
             }
             tableWidth += column.width;
           }
+
           this.tableWidth = tableWidth;
           if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
             this.showFitButton = true;
@@ -372,6 +474,20 @@ export default {
 };
 </script>
 
+<style>
+/* force border radius on col vis menu btn */
+.col-vis-menu > button.btn {
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;;
+}
+
+/* don't let col vis menu overflow the page */
+.col-vis-menu .dropdown-menu {
+  max-height: 300px;
+  overflow: auto;
+}
+</style>
+
 <style scoped>
 /* table fit button -------------------------- */
 /* make fit button pos relative to table */
@@ -386,6 +502,11 @@ button.fit-btn {
 }
 table > thead:hover button.fit-btn {
   visibility: visible;
+}
+
+/* column visibility menu styles ------------- */
+.col-vis-menu .dropdown-header {
+  padding: .25rem .5rem 0;
 }
 
 /* average/total delimeters ------------------ */

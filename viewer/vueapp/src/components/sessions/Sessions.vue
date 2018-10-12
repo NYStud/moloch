@@ -1410,9 +1410,6 @@ table.sessions-table tbody tr td {
   font-size: 120%;
   font-weight: bold;
 }
-.col-vis-menu .dropdown-typeahead {
-  width: 200px;
-}
 
 /* custom column configurations menu --------- */
 .col-config-menu .dropdown-header {
