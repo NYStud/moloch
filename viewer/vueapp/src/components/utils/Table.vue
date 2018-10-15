@@ -17,13 +17,14 @@
       </button>
       <tr ref="draggableColumns">
         <th v-if="actionColumn"
-          class="ignore-element pull-left">
+          class="ignore-element text-left"
+          style="width:50px;">
           <!-- column visibility button -->
           <b-dropdown
             size="sm"
             no-flip
             no-caret
-            class="col-vis-menu"
+            class="col-vis-menu pull-left"
             variant="theme-primary">
             <template slot="button-content">
               <span class="fa fa-th"
@@ -71,7 +72,7 @@
       tag="tbody">
       <!-- avg/total top rows -->
       <template v-if="showAvgTot && data && data.length > 9">
-        <tr class="bold average-row"
+        <tr class="border-top-bold bold average-row"
           key="averageRow">
           <td v-if="actionColumn">
             Average
@@ -103,29 +104,35 @@
               &nbsp;
             </template>
             <template v-else-if="column.avgTotFunction">
-              {{ column.avgTotFunction(averageValues[index]) }}
+              {{ column.avgTotFunction(totalValues[index]) }}
             </template>
             <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
-              {{ column.dataFunction(averageValues[index]) }}
+              {{ column.dataFunction(totalValues[index]) }}
             </template>
             <template v-else>
-              {{ averageValues[index] }}
+              {{ totalValues[index] }}
             </template>
           </td>
         </tr>
       </template> <!-- /avg/total top rows -->
       <!-- data rows -->
-      <template v-for="item of data">
-        <tr :key="item.id">
-          <!-- TODO action buttons -->
+      <template v-for="(item, index) of data">
+        <tr :key="item.id || index">
           <td v-if="actionColumn"
-            class="pull-left">
+            class="text-left"
+            style="overflow: visible !important;">
+            <!-- toggle more info row button -->
             <toggle-btn v-if="infoRow"
               class="mr-1"
               :opened="item.opened"
               @toggle="toggleMoreInfo(item)">
-            </toggle-btn>
+            </toggle-btn> <!-- /toggle more info row button -->
+            <!-- action buttons -->
+            <slot name="actions"
+              :item="item">
+            </slot> <!-- /action buttons -->
           </td>
+          <!-- cell value -->
           <td v-for="(column, index) in computedColumns"
             :key="column.id + index">
             <template v-if="!column.dataFunction && column.dataField">
@@ -137,15 +144,16 @@
             <template v-else>
               {{ column.dataFunction(item[column.dataField]) }}
             </template>
-          </td>
+          </td> <!-- /cell value -->
         </tr>
+        <!-- more info row -->
         <tr v-if="infoRow && item.opened"
           class="text-left"
           :key="item.id+'moreInfo'">
           <td :colspan="tableColspan">
             <div :id="'moreInfo-' + item.id"></div>
           </td>
-        </tr>
+        </tr> <!-- /more info row -->
       </template> <!-- /data rows -->
       <!-- no results -->
       <tr v-if="noResults && data && !data.length"
@@ -190,13 +198,13 @@
             &nbsp;
           </template>
           <template v-else-if="column.avgTotFunction">
-            {{ column.avgTotFunction(averageValues[index]) }}
+            {{ column.avgTotFunction(totalValues[index]) }}
           </template>
           <template v-else-if="!column.avgTotFunction && column.dataFunction && column.dataField">
-            {{ column.dataFunction(averageValues[index]) }}
+            {{ column.dataFunction(totalValues[index]) }}
           </template>
           <template v-else>
-            {{ averageValues[index] }}
+            {{ totalValues[index] }}
           </template>
         </td>
       </tr>
@@ -279,6 +287,9 @@ export default {
       type: String,
       required: true
     },
+    /* IMPORTANT:
+     * doStat property must be set to true on the columns that should be computed
+     * and these columns must be numbers */
     showAvgTot: { // whether to display the average and total rows
       type: Boolean,
       default: false
@@ -292,7 +303,7 @@ export default {
       tableSortField: undefined,
       computedColumns: [], // columns in the order computed from the saved table state
       columnWidths: {}, // width of each column that has been modified
-      showFitButton: false, // whether to show the table fit button (if the table is >||< 10px of the inner window width)
+      showFitButton: false, // whether to show the table fit button (if the table is >||< 15px of the inner window width)
       colQuery: '', // the search string for columns to add/remove from the table
       openedRows: {}, // save the opened rows so they don't get unopened when the table data refreshes
       averageValues: [], // list of total values
@@ -329,7 +340,7 @@ export default {
           if (column.doStats) {
             let totalValue = 0;
             for (let item of this.data) {
-              totalValue += item[column.dataField || column.sort];
+              totalValue += parseInt(item[column.dataField || column.sort]);
             }
             this.totalValues.push(totalValue);
             this.averageValues.push(totalValue / this.data.length);
@@ -409,7 +420,7 @@ export default {
       }
       this.tableWidth = tableWidth;
 
-      if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+      if (Math.abs(this.tableWidth - window.innerWidth) > 15) {
         this.showFitButton = true;
       } else {
         this.showFitButton = false;
@@ -483,7 +494,7 @@ export default {
             }
             this.tableWidth = tableWidth;
 
-            if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+            if (Math.abs(this.tableWidth - window.innerWidth) > 15) {
               this.showFitButton = true;
             }
           }
@@ -561,7 +572,7 @@ export default {
           }
 
           this.tableWidth = tableWidth;
-          if (Math.abs(this.tableWidth - window.innerWidth) > 10) {
+          if (Math.abs(this.tableWidth - window.innerWidth) > 15) {
             this.showFitButton = true;
           }
           this.initializeColResizable();
@@ -638,5 +649,13 @@ table .list-enter, .list-leave-to {
 }
 table .list-move {
   transition: transform .5s;
+}
+
+/* remove terrible padding applied by the column resize lib */
+.JPadding > tbody > tr > td, .JPadding > tbody > tr > th {
+  padding: 0.75rem;
+}
+.table-sm.JPadding > tbody > tr > td, .table-sm.JPadding > tbody > tr > th {
+  padding: 0.1rem 0.5rem !important;
 }
 </style>

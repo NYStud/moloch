@@ -52,7 +52,8 @@
         :message="error">
       </moloch-error>
 
-      <div v-show="!error">
+      <div v-if="!error"
+        class="ml-2 mr-2">
         <moloch-table
           id="fieldTable"
           :data="files"
