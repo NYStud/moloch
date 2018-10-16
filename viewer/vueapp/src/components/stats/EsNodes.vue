@@ -52,6 +52,7 @@
         :action-column="true"
         :desc="query.desc"
         :sortField="query.sortField"
+        table-animation="list"
         table-classes="table-sm text-right small mt-3"
         table-state-name="esNodesCols"
         table-widths-state-name="esNodesColWidths">
@@ -172,7 +173,6 @@ export default {
     }
   },
   created: function () {
-    this.loadData();
     // set a recurring server req if necessary
     if (this.dataInterval !== '0') {
       this.setRequestInterval();
@@ -187,11 +187,6 @@ export default {
         searchInputTimeout = null;
         this.loadData();
       }, 400);
-    },
-    columnClick (name) {
-      this.query.sortField = name;
-      this.query.desc = !this.query.desc;
-      this.loadData();
     },
     clear () {
       this.query.filter = undefined;
@@ -232,8 +227,11 @@ export default {
         }
       }, 500);
     },
-    loadData: function () {
+    loadData: function (sortField, desc) {
       respondedAt = undefined;
+
+      if (desc !== undefined) { this.query.desc = desc; }
+      if (sortField) { this.query.sortField = sortField; }
 
       this.$http.get('esstats.json', { params: this.query })
         .then((response) => {

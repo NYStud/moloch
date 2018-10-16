@@ -68,8 +68,8 @@
         </th>
       </tr>
     </thead>
-    <transition-group name="list"
-      tag="tbody">
+    <transition-group tag="tbody"
+      :name="tableAnimation">
       <!-- avg/total top rows -->
       <template v-if="showAvgTot && data && data.length > 9">
         <tr class="border-top-bold bold average-row"
@@ -293,6 +293,10 @@ export default {
     showAvgTot: { // whether to display the average and total rows
       type: Boolean,
       default: false
+    },
+    /* IMPORTANT! 'list' is the only table animation currently available */
+    tableAnimation: { // table animation name
+      type: String
     }
   },
   data: function () {

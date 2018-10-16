@@ -62,6 +62,7 @@
           :no-results="true"
           :desc="query.desc"
           :sortField="query.sortField"
+          table-animation="list"
           table-classes="table-sm"
           table-state-name="fieldsCols"
           table-widths-state-name="filesColWidths">

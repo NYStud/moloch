@@ -1,6 +1,6 @@
 <template>
 
-  <div class="ml-1 mr-1">
+  <div class="container-fluid">
 
     <moloch-loading v-if="loading && !error">
     </moloch-loading>
@@ -9,8 +9,7 @@
       :message="error">
     </moloch-error>
 
-    <div v-show="!error"
-      class="container-fluid">
+    <div v-show="!error">
 
       <div class="input-group input-group-sm node-search pull-right mt-1">
         <div class="input-group-prepend">
@@ -63,6 +62,7 @@
         :info-row-function="toggleStatDetail"
         :desc="query.desc"
         :sortField="query.sortField"
+        table-animation="list"
         table-classes="table-sm text-right small"
         table-state-name="captureStatsCols"
         table-widths-state-name="captureStatsColWidths">

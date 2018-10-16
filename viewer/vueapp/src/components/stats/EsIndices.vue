@@ -52,6 +52,7 @@
         :action-column="true"
         :desc="query.desc"
         :sortField="query.sortField"
+        table-animation="list"
         table-classes="table-sm text-right small mt-3"
         table-state-name="esIndicesCols"
         table-widths-state-name="esIndicesColWidths">
@@ -97,7 +98,7 @@ function roundCommaString (val) {
 
 export default {
   name: 'EsIndices',
-  props: [ 'dataInterval', 'refreshData' ],
+  props: [ 'user', 'dataInterval', 'refreshData' ],
   components: { MolochError, MolochLoading, MolochTable },
   directives: { FocusInput },
   data: function () {
@@ -122,8 +123,11 @@ export default {
         { id: 'rep', name: 'Replicas', sort: 'rep', dataField: 'rep', doStats: true, default: true, width: 100, dataFunction: roundCommaString },
         { id: 'memoryTotal', name: 'Memory', sort: 'memoryTotal', dataField: 'memoryTotal', doStats: true, default: true, width: 100, dataFunction: (val) => { return this.$options.filters.humanReadableBytes(val); } },
         { id: 'health', name: 'Health', sort: 'health', dataField: 'health', doStats: false, default: true, width: 100 },
-        { id: 'status', name: 'Status', sort: 'status', dataField: 'status', doStats: false, default: true, width: 100 }
-        // TODO all the rest of the available stats (cd, pri.search.query_current, uuid)
+        { id: 'status', name: 'Status', sort: 'status', dataField: 'status', doStats: false, default: true, width: 100 },
+        // all the rest of the available stats
+        { id: 'cd', name: 'Created Date', sort: 'cd', dataField: 'cd', doStats: false, default: true, width: 150, dataFunction: (val) => { return this.$options.filters.timezoneDateString(Math.floor(val / 1000), this.user.settings.timezone, 'YYYY/MM/DD HH:mm:ss z'); } },
+        { id: 'pri.search.query_current', name: 'Current Query Phase Ops', sort: 'pri.search.query_current', dataField: 'pri.search.query_current', doStats: false, default: true, width: 100, dataFunction: roundCommaString },
+        { id: 'uuid', name: 'UUID', sort: 'uuid', dataField: 'uuid', doStats: false, default: true, width: 100 }
       ]
     };
   },
@@ -161,7 +165,6 @@ export default {
     }
   },
   created: function () {
-    this.loadData();
     // set a recurring server req if necessary
     if (this.dataInterval !== '0') {
       this.setRequestInterval();
@@ -184,11 +187,6 @@ export default {
     },
     onOffFocus: function () {
       this.focusInput = false;
-    },
-    columnClick (name) {
-      this.query.sortField = name;
-      this.query.desc = !this.query.desc;
-      this.loadData();
     },
     deleteIndex (indexName) {
       this.$http.delete(`esindices/${indexName}`)
@@ -218,8 +216,11 @@ export default {
         }
       }, 500);
     },
-    loadData: function () {
+    loadData: function (sortField, desc) {
       respondedAt = undefined;
+
+      if (desc !== undefined) { this.query.desc = desc; }
+      if (sortField) { this.query.sortField = sortField; }
 
       this.$http.get('esindices/list', { params: this.query })
         .then((response) => {
